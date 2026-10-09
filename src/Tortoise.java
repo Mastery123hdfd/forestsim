@@ -1,4 +1,5 @@
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.Dictionary;
 import java.util.Random;
 import java.util.Stack;
@@ -208,6 +209,7 @@ public class Tortoise extends Turtle{
         }
     }
     private void drawTree(Tree tree){
+        ArrayList<double[]> tips = new ArrayList<>();
         for(double[] points : tree.getPoints()){
             System.out.println("X: " + points[0] + " Y: " + points[1] + " Angle: " + points[2] + " Radius " + points[5] + " Length " + points[4]);
             setPenColor(Color.BLACK);
@@ -216,9 +218,16 @@ public class Tortoise extends Turtle{
             setAngle(points[2]);
             setPenRadius(points[5]);
             goForward(points[4]);
+            if(points[3] == 1.0) tips.add(new double[]{getX(), getY()});
         }
+        setPenColor(tree.getLeaf());
+        for(double[] tip : tips){
+            filledCircle(tip[0], tip[1], 10);
+        }
+        setPenColor(Color.BLACK);
     }
     public double drawTreeBranches(double x, double y, double angle, int depth,double branchL,double penRad, Tree tree){
+
         System.out.println("Draw Tree Branches called!!");
         if(depth == 0){
             return 0;
@@ -228,7 +237,7 @@ public class Tortoise extends Turtle{
             this.setAngle(angle);
             this.setPenRadius(penRad);
             this.goForward(branchL);
-            tree.addPoint(x,y,angle,0,branchL,penRad,depth);
+            tree.addPoint(x, y, angle, 1, branchL, penRad, depth);
             double val = branchL*penRad*2;
             System.out.println("Draw Report: X: "+x+" Y: " + y + " Angle: " + angle+ " BranchL: " + branchL + " Radius: " + penRad);
 

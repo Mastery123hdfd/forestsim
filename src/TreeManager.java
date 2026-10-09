@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 
 public class TreeManager {
-    private Double nutrient = 12000.0;
+    private Double nutrient = initnutrient;
     private static double CHANGE = 0.1;
     private ArrayList<Tree> inner = new ArrayList<Tree>();
     public ArrayList<Tree> getInner(){return inner;}
@@ -18,6 +18,7 @@ public class TreeManager {
     private double BIOMASSPOOL = Tree.getBP();
     private int stuckCount = 0;
     private int time;
+    public static double initnutrient = 200000;
     public TreeManager(Tortoise t){
         addTree(new Tree(300,0,90,this,t));
         System.out.println("Tree Added");
@@ -72,7 +73,7 @@ public class TreeManager {
 
             this.addTree(new Tree(300,0,90,this,tort));
         }
-        if(this.getInner().size() == 0 || stuckCount >= 20){
+        if(this.getInner().size() == 0 || stuckCount >= 100){
             System.out.println("All trees have died");
             this.killAll();
             Tree.changeLF(-2*CHANGE);
@@ -86,7 +87,13 @@ public class TreeManager {
         if(this.getInner().size() <= 7){
             stuckCount++;
             System.out.println("Stagnant");
+        } else{
+            stuckCount = 0;
         }
+        LEAFCOST = Tree.getLF();
+        BIOMASSPOOL = Tree.getBP();
+        REPRODUCTIVELIMIT = Tree.getRL();
+        GROWTHLIMIT = Tree.getGL();
         try {
             FileWriter fw = new FileWriter("Consts.txt");
             fw.write("LEAFCOST: " + LEAFCOST +
@@ -104,5 +111,16 @@ public class TreeManager {
         for(int i = 0; i < inner.size();i++){
             killTree(inner.get(i));
         }
+        nutrient=initnutrient;
+    }
+
+    public void consume(double amt) {nutrient -= amt;}
+
+    public double portion() {
+        double total = nutrient;
+        for(Tree t : inner){
+            total+=t.getBiomass();
+        }
+        return inner.size()>8 ? total/8 : total/inner.size();
     }
 }

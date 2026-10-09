@@ -48,6 +48,7 @@ public class MainRunner {
             t.clear();
             tm.Check(t);
             System.out.println("Results cleared; Redoing LOOP");
+            //break;
         }
 
 

@@ -2,6 +2,7 @@ import java.awt.*;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Random;
 
 public class Tree{
@@ -13,12 +14,18 @@ public class Tree{
     private static double BLUEPOWER=23;
     private static double REDPOWER=21;
     private static double GREENPOWER=6;
-    private static double REPRODUCTIVELIMIT=90000;
-    private static double BIOMASSPOOL=180;
+    private static double REPRODUCTIVELIMIT=500;
+    private static double BIOMASSPOOL=20;
     private static double LEAFCOST=9;
     private static double GROWTHLIMIT=30;
     private static final int MAXIMUM=45;
-    private double surv=10;
+    private double surv=120;
+    private static double MAX_HEIGHT = 120;
+    private static final int SEED_COST = 150;
+    public static final int MAX_POINTS = 300;
+    private static final double UPKEEP = 0.02;
+    private static final double MIN_LIGHT = 0.15;
+    private static final int MAX_GEN = 6;
     private Color leaf;
     private ArrayList<double[]> leaved = new ArrayList<double[]>();
     public static double getRL(){return REPRODUCTIVELIMIT;}
@@ -30,8 +37,11 @@ public class Tree{
     public static void changeBP(double ch){BIOMASSPOOL+=ch;}
     public static void changeLF(double ch){LEAFCOST+=ch;}
     public static void changeGL(double ch){GROWTHLIMIT+=ch;}
+    private static final double LEAF_INCOME = 160;
+    private static final double CROWD_RANGE = 120;
     private Tortoise tort;
     private double biomass;
+    public Color getLeaf(){return leaf;}
     public double getX(){return x;}
     public double getY(){return y;}
     public double getAngle(){return angle;}
@@ -41,11 +51,14 @@ public class Tree{
     public int getDepth(){return branch;}
     private TreeManager tm;
     public TreeManager getTM(){return tm;}
-
+    private double height=0;
     private ArrayList<double[]> points = new ArrayList<double[]>();
     public ArrayList<double[]> getPoints(){return points;}
     public void addPoint(double x, double y,double angle, double leafed, double treeL, double treeRad, int depth){
         points.add(new double[]{x,y,angle,leafed,treeL,treeRad,depth});
+        if(y>height){
+            height = y;
+        }
         System.out.println("Add Point: \nx: " + x +"\ny: "+ y + "\nangle: " + angle + "\nleafed: " + leafed +"\ntreeL: "+ treeL+"\ntreeRad: " + treeRad+"\nDpeth: "+depth);
     }
     public Tree(double x, double y, double angle, TreeManager tm, Tortoise tort, double[] prefs) {
@@ -63,11 +76,12 @@ public class Tree{
     }
     public Tree(double x, double y, double angle, TreeManager tm, Tortoise tort) {
         this(x,y,angle,tm,tort,new double[]{25,25,30,30, new Color(57, 160, 57).getRGB(),100,10,10000});
-        this.surv = 120;
+        this.surv = 140;
     }
 
     public Tree offSpring() {
-        int dx = rand.nextInt(-50,50);
+        int dx = rand.nextInt(-100,100);
+        dx = dx >= 0 ? dx + 40 : dx-40;
         double dthet = rand.nextDouble(-8,8);
         double[] newprefs = prefs.clone();
         //Mutation'
@@ -94,14 +108,21 @@ public class Tree{
         newprefs[5]*=lenMut;
         newprefs[6]*=radMut;
 
-        return new Tree(x+dx,y,angle+dthet,tm,tort,newprefs);
+        Tree t = new Tree(x+dx,y,angle+dthet,tm,tort,newprefs);
+        t.addEnergy(150);
+        return t;
+    }
+    public void addEnergy(double d){
+        surv+=d;
     }
     public void grow(int time, Double nutrient){
+        leaved.clear();
         calcSurv(time,nutrient);
         System.out.println("Survey printed!");
         if(surv <= 0){
             tm.killTree(this);
             System.out.println("Tree did not survive, bau bau");
+            return;
         }
         if(surv >= REPRODUCTIVELIMIT){
             System.out.println("Tree reproduced successfully");
@@ -110,6 +131,9 @@ public class Tree{
             for(int i = 0; i < offs; i++){
                 tm.birthTree(this);
                 System.out.println("Tree birthed");
+            }
+            for(int i = 0; i < offs; i++){
+                this.surv-=SEED_COST;
             }
         }
 
@@ -120,7 +144,7 @@ public class Tree{
                     double leafval = rand.nextDouble();
                     if(leafval < prefs[0]/100){
                         points.get(i)[3] = 1.0;
-                        System.out.println("Leaf removed");
+                        System.out.println("Leaf REGEN");
                     }
                 }
             }
@@ -132,12 +156,12 @@ public class Tree{
                     double leafval = rand.nextDouble();
                     if(leafval < prefs[1]/100){
                         points.get(i)[3] = 0.0;
-                        System.out.println("Leaf regenerated");
+                        System.out.println("Leaf REMOVE");
                     }
                 }
             }
         }
-        if(Season == 2){
+        else if (Season == 2){
             System.out.println("Winter Season");
             for(int i = 0; i < points.size(); i++){
                 if(points.get(i)[3] == 1.0){
@@ -149,7 +173,7 @@ public class Tree{
                 }
             }
         }
-        if(Season == 3){
+        else if(Season == 3){
             System.out.println("Spring Season!");
             for(int i = 0; i < points.size(); i++){
                 if(points.get(i)[3] != 1.0){
@@ -162,24 +186,27 @@ public class Tree{
             }
         }
         System.out.println("Branch: " + branch);
-        for(int i = 0; i < points.size(); i++){
-            double[] dp = points.get(i);
-            if(biomass < nutrient+prefs[7]) {
-                System.out.println("E!");
-                for(double d : dp){
-                    System.out.println(d);
-                }
-                if (dp[6] == branch) {
-                    System.out.println("Branch Called!");
-                    double newbiomass =tort.drawTreeBranches(dp[0], dp[1], dp[2], 2, dp[4], dp[5], this);
-                    nutrient-=newbiomass;
-                    biomass+=newbiomass;
+        if(branch <= MAX_GEN){
+            double fair = tm.portion();
+            int atGen = 0;
+            StringBuilder depths = new StringBuilder();
+            for(double[] p : points){
+                if((int)p[6] == branch) atGen++;
+                depths.append((int)p[6]).append(' ');
+            }
+            ArrayList<double[]> branchpoints = (ArrayList<double[]>) points.clone();
+            Collections.shuffle(branchpoints);
+            boolean grew = false;
+            for(double[] dp : branchpoints){
+                if((int)dp[6] != branch) continue;
+                if(points.size() <= MAX_POINTS || biomass <= tm.portion()) {
+                    double added = tort.drawTreeBranches(dp[0], dp[1], dp[2], 2, dp[4], dp[5], this);
+                    biomass += added;
+                    tm.consume(added);
+                    grew = true;
                 }
             }
-            if(dp[3] == 1.0){
-                System.out.println("Leaf Proccesing Called");
-                leaved.add(dp);
-            }
+            if (grew){branch++;}
         }
         branch++;
         for(double[] leaves : leaved){
@@ -189,7 +216,12 @@ public class Tree{
             tort.filledCircle(leaves[0],leaves[1],10);
             tort.setPenColor(Color.BLACK);
         }
-        System.out.println("Tree Status Report:\nSurvival Survey: " + surv + "\nBranch: " + branch + "\nColor: " + leaf + "\nBiomass: " +this.getBiomass()+"\nWidth: " + this.getWid()+"\nLen: "+this.getLen());
+        System.out.println("Tree Status Report:\nSurvival Survey: " + surv
+                + "\nBranch: " + branch
+                + "\nColor: " + leaf
+                + "\nBiomass: " +this.getBiomass()
+                +"\nWidth: " + this.getWid()
+                +"\nLen: "+this.getLen());
 
     }
 
@@ -208,11 +240,6 @@ public class Tree{
 
 
     private void calcSurv(int time, Double nutrient){
-        for(double[] dp : points){
-            if(dp[3] == 1){
-                surv+=dp[1];
-            }
-        }
         System.out.println("Leaf Survival Survey calculated: " + surv);
         Season = (time/5)%4;
         System.out.println("Season calculated: " + Season);
@@ -256,13 +283,22 @@ public class Tree{
         for(Tree closest : tm.getClosest(this)){
             surv-=biomass/closest.getX();
         }
-        surv += (Sunlight*greenPower*GREENPOWER + Sunlight*redPower*REDPOWER + Sunlight*bluePower*BLUEPOWER)*leaved.size()/100; //Green gives power tho!
-        for(double[] db : points){
-            if(db[3] == 1){
-                surv-=LEAFCOST;
-            }
+        double I = (Sunlight*greenPower*GREENPOWER + Sunlight*redPower*REDPOWER + Sunlight*bluePower*BLUEPOWER)*leaved.size()/510; //Green gives power tho!
+        double crowd = 0;
+        for(Tree other : tm.getInner()){
+            if(other == this) continue;
+            double dist = Math.abs(other.getX() - x);
+            if(dist < CROWD_RANGE) crowd += 1 - dist / CROWD_RANGE;
         }
-        surv+=GROWTHLIMIT-BIOMASSPOOL*biomass/nutrient; //Theoretical carrying limit is 25 trees, then
+
+        surv += LEAF_INCOME * Math.sqrt(I) / (1 + crowd);
+        double light = Math.max(Sunlight / 100.0, MIN_LIGHT);
+        double income = LEAF_INCOME*light*I*Math.sqrt(leaved.size())/(1 + crowd);
+        double upkeep = UPKEEP*Math.pow(biomass, 0.75)+Math.exp(height / MAX_HEIGHT);
+        surv +=income-upkeep;
+        surv -= 0.05 * Math.pow(biomass, 0.75);
+        surv -= Math.exp(height / MAX_HEIGHT);
+         //Theoretical carrying limit is 25 trees, then
     }
 
 
