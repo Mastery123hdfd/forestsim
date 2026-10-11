@@ -14,7 +14,7 @@ public class Tree{
     private static double BLUEPOWER=23;
     private static double REDPOWER=21;
     private static double GREENPOWER=6;
-    private static double REPRODUCTIVELIMIT=500;
+    private static double REPRODUCTIVELIMIT=120;
     private static double BIOMASSPOOL=20;
     private static double LEAFCOST=9;
     private static double GROWTHLIMIT=30;
